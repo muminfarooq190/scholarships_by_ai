@@ -1,0 +1,19 @@
+[tool.poetry]
+name        = "ingest"
+version     = "0.1.0"
+description = "Scholarship scraper – Data API"
+authors     = ["Mumin Farooq <mumin.farooq@vertexone.net>"]
+packages    = [{ include = "ingest" }]
+
+[tool.poetry.dependencies]
+python            = ">=3.10,<4.0"      # 3.12 works fine
+requests          = "^2.32"
+beautifulsoup4    = "^4.13"
+python-dotenv     = "^1.1"
+openai            = "^1.79"
+tqdm              = "^4.67"
+astrapy           = "^2.0"             # ← real version on PyPI
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
