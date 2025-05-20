@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv(".env")
 
-openai.api_key = os.getenv("")
+openai.api_key = ""
 
 client = DataAPIClient("")
 db = client.get_database_by_api_endpoint(
@@ -21,7 +21,7 @@ def crawl(max_items: int = 20):
     html = requests.get(URL, timeout=15, headers=headers).text
     resp = requests.get(URL, timeout=15, headers={'User-Agent': 'Mozilla/5.0'})
     print(resp.status_code, len(resp.text))      # 200 and a non-tiny length?
-    with open("/scholarship/debug.html", "w", encoding="utf-8") as f:
+    with open("scholarship/debug.html", "w", encoding="utf-8") as f:
      f.write(resp.text)
     soup = BeautifulSoup(html, "html.parser")
 

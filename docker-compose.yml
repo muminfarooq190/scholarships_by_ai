@@ -4,15 +4,15 @@ services:
   ingest:
     build:
       context: ./crawler
-    command: >
-      python -m debugpy
-      --listen 0.0.0.0:5678       
-      --wait-for-client           
-      ingest/main.py
+      dockerfile: Dockerfile
     ports:
-      - "5678:5678"               # map container → host
+    - "5678:5678"  # Expose debugger port
     volumes:
-      - ./crawler/ingest:/app/ingest          # existing hot-reload mount
-      - ./scholarship:/scholarship     
+      - ./crawler/ingest:/app/ingest
+      - scholarship_volumn:/scholarship   
+    command: [] 
     restart: "no"
 
+volumes:
+  scholarship_volumn:
+    external : true
