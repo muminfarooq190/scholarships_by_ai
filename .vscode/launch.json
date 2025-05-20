@@ -17,7 +17,8 @@
                     "localRoot": "${workspaceFolder}",
                     "remoteRoot": "."
                 }
-            ]
+            ],
+            "preLaunchTask": "Start Docker Container"
         }
     ]
 }

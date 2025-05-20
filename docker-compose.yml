@@ -11,7 +11,7 @@ services:
       - ./crawler/ingest:/app/ingest
       - scholarship_volumn:/scholarship   
     command: [] 
-    restart: "no"
+    restart: "on-failure"
 
 volumes:
   scholarship_volumn:
