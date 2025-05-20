@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Docker Container",
+      "type": "shell",
+      "command": "docker-compose up --build --detach",
+      "problemMatcher": [],
+      "detail": "Build and run the container in the background"
+    }
+  ]
+}
