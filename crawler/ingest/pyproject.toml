@@ -2,7 +2,7 @@
 name        = "ingest"
 version     = "0.1.0"
 description = "Scholarship scraper – Data API"
-authors     = ["Mumin Farooq <mumin.farooq@vertexone.net>"]
+authors     = ["Mumin Farooq <muminfarooq@outlook.com>"]
 packages    = [{ include = "ingest" }]
 
 [tool.poetry.dependencies]

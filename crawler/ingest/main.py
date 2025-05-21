@@ -1,56 +1,85 @@
-import os, uuid, time
-import requests, openai
+import os
+import uuid
+import time
+import re
+import requests
 from bs4 import BeautifulSoup
 from astrapy import DataAPIClient
 from dotenv import load_dotenv
 
 load_dotenv()
 
-openai.api_key = os.getenv("OPENAI_API_KEY");
-
+# ─── Setup Astra client ────────────────────────────────────────────────────────
 client = DataAPIClient(os.getenv("ASTRA_TOKEN"))
 db = client.get_database_by_api_endpoint(
     os.getenv("ASTRA_ENDPOINT"),
     keyspace=os.getenv("ASTRA_KEYSPACE"),
 )
+tbl = db.get_collection(os.getenv("ASTRA_TABLE"))  # JSON-collection
 
-tbl = db.get_collection(os.getenv("ASTRA_TABLE"))  # works for tables and JSON collections
+# ─── Constants & Helpers ──────────────────────────────────────────────────────
 URL = "https://www.scholars4dev.com/category/masters-scholarships/"
-def crawl(max_items: int = 20):
-    headers = {"User-Agent": "Mozilla/5.0"}
-    html = requests.get(URL, timeout=1500, headers=headers).text
-    resp = requests.get(URL, timeout=1500, headers={'User-Agent': 'Mozilla/5.0'})
-    print(resp.status_code, len(resp.text))      # 200 and a non-tiny length?
-    with open("/scholarship/debug.html", "w", encoding="utf-8") as f:
-     f.write(resp.text)
+
+def clean(txt: str) -> str:
+    return re.sub(r"\s+", " ", txt).strip()
+
+# ─── 1) Crawl function ───────────────────────────────────────────────────────
+def crawl(max_items: int = 20) -> list[dict]:
+    html = requests.get(URL, headers={"User-Agent": "Mozilla/5.0"}, timeout=30).text
     soup = BeautifulSoup(html, "html.parser")
+    docs = []
 
-    posts = soup.select("h3.entry-title > a")   # current selector
-    for a in posts[:max_items]:
-        title = a.get_text(strip=True)
-        url   = a["href"]
+    for post in soup.select("div.post")[:max_items]:
+        a     = post.select_one("h2 a[href]")
+        title = clean(a.get_text()) if a else "No title"
+        url   = a["href"]           if a else None
 
-        # grab the first paragraph inside the sibling div.td-excerpt
-        excerpt_parent = a.find_parent().find_next_sibling("div", class_="td-excerpt")
-        short_desc = excerpt_parent.p.get_text(strip=True) if excerpt_parent else ""
+        entry = post.select_one("div.entry")
+        para  = entry.find("p")     if entry else None
+        desc  = clean(para.get_text()) if para else ""
 
-        yield {
-            "id": str(uuid.uuid4()),
-            "title": title,
-            "short_desc": short_desc,
-            "url": url,
-            "country": "International",
-            "degree_level": "Masters",
-        }
+        docs.append({
+            # use your own UUID as the JSON-doc _id
+            "id":            str(uuid.uuid4()),
+            "title":         title,
+            "short_desc":    desc,
+            "url":           url,
+            "country":       "International",
+            "degree_level":  "Masters",
+        })
 
-def embed(text: str) -> list[float]:
-    r = openai.embeddings.create(model="text-em     bedding-3-small", input=text)
-    return r.data[0].embedding
+    return docs
 
-for doc in crawl():
-    print("hii")
-    doc["embedding"] = embed(doc["short_desc"])
-    tbl.insert_one(doc)              # REST call under the hood
-    time.sleep(0.8)                  # stay way under OpenAI QPS limits
+# ─── 2) Batch-embed function ─────────────────────────────────────────────────
+def embed_texts(docs: list[dict]) -> list[list[float]]:
+    api_url = "https://api.jina.ai/v1/embeddings"
+    headers = {
+        "Authorization": f"Bearer {os.getenv('JINA_API_KEY')}",
+        "Content-Type": "application/json",
+    }
+    inputs = [{"text": d["short_desc"]} for d in docs]
+    payload = {"model": "jina-clip-v2", "input": inputs}
 
-print("Done 🚀")
+    resp = requests.post(api_url, headers=headers, json=payload)
+    resp.raise_for_status()
+
+    data = resp.json().get("data", [])
+    # return list of embedding vectors in same order
+    return [item["embedding"] for item in data]
+
+# ─── 3) Main pipeline ─────────────────────────────────────────────────────────
+def main():
+    docs = crawl(max_items=20)
+    embeddings = embed_texts(docs)
+
+    # Attach embeddings to each doc
+    for doc, emb in zip(docs, embeddings):
+        doc["embedding_v1024"] = emb
+
+    # Bulk insert all docs at once
+    tbl.insert_many(docs)
+
+    print("Done 🚀")
+
+if __name__ == "__main__":
+    main()
